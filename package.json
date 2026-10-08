@@ -1,0 +1,19 @@
+{
+  "name": "chess-trainer",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Персональный шахматный тренажёр: профилактика, план, реализация, дебюты",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/main.js --bundle --format=esm --minify --target=es2020 --outfile=assets/app.js",
+    "watch": "esbuild src/main.js --bundle --format=esm --sourcemap --target=es2020 --outfile=assets/app.js --watch"
+  },
+  "license": "GPL-3.0-or-later",
+  "dependencies": {
+    "chess.js": "^1.0.0",
+    "chessground": "^9.1.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  }
+}
