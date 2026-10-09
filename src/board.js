@@ -4,6 +4,12 @@ import { Chess } from 'chess.js';
 
 export { Chess };
 
+// Пустая доска / учебные позиции без королей chess.js не принимает — тогда доска просто показывает fen
+function safeChess(fen) {
+  try { return new Chess(fen); }
+  catch (e) { const c = new Chess(); c.clear(); return c; }
+}
+
 export function destsOf(chess) {
   const m = new Map();
   for (const mv of chess.moves({ verbose: true })) {
@@ -65,11 +71,11 @@ const BRUSHES = {
 export class Board {
   constructor(el, { fen = 'start', orientation = 'white', coordinates = true } = {}) {
     this.el = el;
-    this.chess = new Chess(fen === 'start' ? undefined : fen);
+    this.chess = safeChess(fen === 'start' ? undefined : fen);
     this.onMove = null;
     this.onSelect = null;
     this.cg = Chessground(el, {
-      fen: this.chess.fen(),
+      fen: fen === 'start' ? this.chess.fen() : fen.split(' ')[0],
       orientation: colorName(orientation),
       coordinates,
       animation: { enabled: true, duration: 180 },
@@ -94,10 +100,10 @@ export class Board {
 
   // Поставить позицию. lastMove — [from,to] или uci.
   setPosition(fen, lastMove) {
-    this.chess = new Chess(fen);
+    this.chess = safeChess(fen);
     const lm = typeof lastMove === 'string' ? [lastMove.slice(0, 2), lastMove.slice(2, 4)] : lastMove;
     this.cg.set({
-      fen, lastMove: lm || undefined, turnColor: colorName(this.chess.turn()),
+      fen: fen.split(' ')[0], lastMove: lm || undefined, turnColor: colorName(this.chess.turn()),
       check: this.chess.inCheck() ? colorName(this.chess.turn()) : false,
       movable: { color: undefined, dests: new Map() },
     });

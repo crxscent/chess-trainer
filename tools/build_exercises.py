@@ -156,6 +156,27 @@ def make_text(b, pm, bm, before, pe, reply, threat, ev, pvs, best):
     return T
 
 
+def best_tags(b, bm, before, cat):
+    """Теги лучшего хода — чтобы «Золотые правила» находили практику в твоих партиях."""
+    t = []
+    p = b.piece_at(bm.from_square)
+    f = chess.square_file(bm.to_square)
+    if p.piece_type == chess.ROOK and not b.is_capture(bm):
+        own = any(chess.square_file(s) == f for s in b.pieces(chess.PAWN, p.color))
+        if not own and chess.square_file(bm.from_square) != f: t.append('b:rook-open')
+    if p.piece_type == chess.KNIGHT and not b.is_capture(bm):
+        to = bm.to_square; fr = bm.from_square
+        central = 2 <= chess.square_file(to) <= 5 and 2 <= chess.square_rank(to) <= 5
+        rim = chess.square_file(fr) in (0, 7) or chess.square_rank(fr) in (0, 7)
+        if central and (rim or not (2 <= chess.square_file(fr) <= 5 and 2 <= chess.square_rank(fr) <= 5)): t.append('b:knight-center')
+    if p.piece_type == chess.KING and not b.is_castling(bm) and cat in ('endgame', 'convert'): t.append('b:king')
+    if b.is_capture(bm) and before >= 150:
+        cap = b.piece_at(bm.to_square)
+        if cap and cap.piece_type != chess.PAWN and VAL[cap.piece_type] == VAL[p.piece_type]: t.append('b:trade')
+    if b.is_castling(bm): t.append('b:castle')
+    return t
+
+
 def retext(path):
     """Перегенерировать тексты в готовом exercises.json без движка."""
     ex = json.load(open(path))
@@ -172,6 +193,7 @@ def retext(path):
         elif e['cat'] == 'active':
             T.append(f'\n\n{b.san(pm)} — «активный» ход ({"шах" if b.gives_check(pm) else "взятие"}), но он не улучшает позицию.')
         e['text'] = ' '.join(T).replace(' \n\n', '\n\n')
+        e['tags'] = [t for t in e.get('tags', []) if not t.startswith('b:')] + best_tags(b, bm, before, e['cat'])
     json.dump(ex, open(path, 'w'), ensure_ascii=False, separators=(',', ':'))
     print('retext', len(ex))
 

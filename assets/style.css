@@ -286,3 +286,14 @@ details > summary { cursor: pointer; color: var(--muted); }
 .kv dd { margin: 0; }
 .tag-line { display: flex; flex-wrap: wrap; gap: 6px; }
 .small { font-size: 13px; }
+
+/* карточка за доской и печать */
+.printcard ol.big { padding-left: 22px; }
+.printcard ol.big li { font-size: 1.12rem; margin: 6px 0; }
+@media print {
+  .topbar, .bottomnav, .noprint, .toast { display: none !important; }
+  body { background: #fff; color: #000; padding: 0; }
+  .app { padding: 0; max-width: none; }
+  .card { box-shadow: none; border: 1px solid #bbb; background: #fff; color: #000; }
+  .muted, .small { color: #333 !important; }
+}

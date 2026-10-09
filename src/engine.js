@@ -18,7 +18,7 @@ function boot() {
     const t = setTimeout(() => reject(new Error('Движок не запустился')), 20000);
     worker.onmessage = e => {
       const line = typeof e.data === 'string' ? e.data : '';
-      if (line === 'uciok') { worker.postMessage('setoption name Hash value 16'); worker.postMessage('isready'); }
+      if (line === 'uciok') { worker.postMessage('setoption name Hash value 16'); worker.postMessage('setoption name Contempt value 0'); worker.postMessage('isready'); }
       else if (line === 'readyok' && t) { clearTimeout(t); worker.onmessage = ev => handler && handler(String(ev.data)); resolve(); }
     };
     worker.onerror = err => { clearTimeout(t); reject(err); };

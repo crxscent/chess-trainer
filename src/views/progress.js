@@ -35,15 +35,39 @@ export function renderProgress(app, D) {
     <div class="card stat"><div class="v">${totalTasks}</div><div class="l">заданий выполнено</div></div>
     <div class="card stat"><div class="v">${fmtMin(totalSec)}</div><div class="l">общее время</div></div>
   </div>
+  <div class="card mt"><div class="row between"><h3 style="margin:0">Рейтинг на lichess</h3><span class="small muted" id="rtInfo">загружаю…</span></div><div id="rt" class="mt"></div></div>
   <div class="card mt"><h3>Активность за ${weeks} недель</h3><div class="heat" style="grid-template-rows:repeat(7,14px);grid-auto-flow:column;grid-template-columns:none">${cells.join('')}</div>
   <p class="small muted mt">Точность: ${acc.ok + acc.bad ? Math.round(100 * acc.ok / (acc.ok + acc.bad)) : 0}% уверенных ответов.</p></div>
   <div class="grid g3 mt">
     <div class="card stack"><h3>Мои ошибки</h3>${rowS('Всего', exAll)}${Object.keys(CATS).filter(c => D.ex.some(e => e.cat === c)).map(c => rowS(CATS[c].t, summary(D.ex.filter(e => e.cat === c).map(e => 'ex:' + e.id)))).join('')}</div>
     <div class="card stack"><h3>Дебюты</h3>${rowS('Всего', olAll)}${D.op.courses.map(c => rowS(c.title, summary(c.lines.map(l => 'ol:' + l.id)))).join('')}</div>
-    <div class="card stack"><h3>Школа плана</h3>${rowS('Всего', lsAll)}
+    <div class="card stack"><h3>Школа плана и правила</h3>${rowS('Школа плана', lsAll)}${rowS('Золотые правила: позиции и эндшпили', summary(D.rules.drills.map(d => 'rd:' + d.id).concat(D.rules.playouts.map(p => 'pl:' + p.id))))}
+      ${(() => { const v = S().vision || {}; const k = Object.keys(v); return k.length ? `<p class="small muted">Визуализация, рекорды: ${k.map(x => ({ square: 'поля', color: 'цвет', knight: 'конь', memory: 'память' }[x] + ' ' + v[x].best)).join(' · ')}</p>` : ''; })()}
       <p class="small muted">Легенда: <span style="color:var(--good)">■</span> освоено · <span style="color:var(--ok)">■</span> повторение · <span style="color:var(--warn)">■</span> изучается</p></div>
   </div>`;
+  loadRating(app);
   return () => { };
+}
+
+async function loadRating(app) {
+  const box = app.querySelector('#rt'); const info = app.querySelector('#rtInfo');
+  try {
+    const r = await fetch(`https://lichess.org/api/user/${encodeURIComponent(settings().lichess)}/rating-history`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    const since = Date.now() - 180 * DAY;
+    const COLORS = { Blitz: 'var(--accent)', Rapid: 'var(--good)', Classical: 'var(--info)', Bullet: 'var(--faint)' };
+    const series = data.filter(x => COLORS[x.name] && x.points.length).map(x => ({ name: x.name, pts: x.points.map(([y, m, d, v]) => [new Date(y, m, d).getTime(), v]).filter(p => p[0] >= since) })).filter(x => x.pts.length);
+    if (!series.length || !box) { if (info) info.textContent = 'нет данных за полгода'; return; }
+    const all = series.flatMap(x => x.pts); const t0 = Math.min(...all.map(p => p[0])), t1 = Math.max(Date.now(), ...all.map(p => p[0]));
+    let lo = Math.min(...all.map(p => p[1])), hi = Math.max(...all.map(p => p[1])); lo = Math.floor((lo - 20) / 50) * 50; hi = Math.ceil((hi + 20) / 50) * 50;
+    const W = 600, H = 180, X = t => 36 + (t - t0) / Math.max(1, t1 - t0) * (W - 44), Y = v => 8 + (hi - v) / Math.max(1, hi - lo) * (H - 28);
+    const grid = []; for (let v = lo; v <= hi; v += 50) grid.push(`<line x1="36" x2="${W - 8}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)" stroke-width="1"/><text x="30" y="${Y(v) + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${v}</text>`);
+    const lines = series.map(x => `<polyline fill="none" stroke="${COLORS[x.name]}" stroke-width="2" points="${x.pts.map(p => X(p[0]).toFixed(1) + ',' + Y(p[1]).toFixed(1)).join(' ')}"/>`).join('');
+    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">${grid.join('')}${lines}</svg>
+      <div class="row small mt">${series.map(x => `<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${COLORS[x.name]};margin-right:4px"></span>${x.name}: <b>${x.pts[x.pts.length - 1][1]}</b> (${x.pts[x.pts.length - 1][1] - x.pts[0][1] >= 0 ? '+' : ''}${x.pts[x.pts.length - 1][1] - x.pts[0][1]} за период)</span>`).join('')}</div>`;
+    info.textContent = `${settings().lichess} · последние 6 месяцев`;
+  } catch (e) { if (info) info.textContent = 'не удалось загрузить'; }
 }
 
 export function renderSettings(app, D, onReset) {

@@ -9,7 +9,7 @@ export const THEMES = {
   structure: 'Пешечная структура', endgame: 'Эндшпиль', calm: 'Не форсируй',
 };
 
-export function mountLesson(root, ls, { onDone, sessionInfo = '' } = {}) {
+export function mountLesson(root, ls, { onDone, sessionInfo = '', badge = 'Школа плана', ruleTitle = '' } = {}) {
   root.innerHTML = `
   <div class="trainer">
     <div class="board-col">
@@ -17,7 +17,7 @@ export function mountLesson(root, ls, { onDone, sessionInfo = '' } = {}) {
       <div class="board-meta"><span><span class="turn-dot ${ls.color}"></span>Ход ${ls.color === 'w' ? 'белых' : 'чёрных'}</span><span>${esc(ls.source || '')}</span></div>
     </div>
     <div class="panel"><div class="card">
-      <div class="row between mb"><div class="row"><span class="badge accent">Школа плана</span><span class="badge">${esc(THEMES[ls.theme] || ls.theme)}</span></div><span class="timer">${esc(sessionInfo)}</span></div>
+      <div class="row between mb"><div class="row"><span class="badge accent">${esc(badge)}</span><span class="badge">${esc(ruleTitle || THEMES[ls.theme] || ls.theme)}</span></div><span class="timer">${esc(sessionInfo)}</span></div>
       <h2>${esc(ls.title)}</h2>
       ${ls.context ? `<p class="hint">${richText(ls.context, { fig })}</p>` : ''}
       <div class="q">${richText(ls.q, { fig })}</div>
