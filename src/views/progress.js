@@ -41,7 +41,7 @@ export function renderProgress(app, D) {
   <div class="grid g3 mt">
     <div class="card stack"><h3>Мои ошибки</h3>${rowS('Всего', exAll)}${Object.keys(CATS).filter(c => D.ex.some(e => e.cat === c)).map(c => rowS(CATS[c].t, summary(D.ex.filter(e => e.cat === c).map(e => 'ex:' + e.id)))).join('')}</div>
     <div class="card stack"><h3>Дебюты</h3>${rowS('Всего', olAll)}${D.op.courses.map(c => rowS(c.title, summary(c.lines.map(l => 'ol:' + l.id)))).join('')}</div>
-    <div class="card stack"><h3>Школа плана и правила</h3>${rowS('Школа плана', lsAll)}${rowS('Золотые правила: позиции и эндшпили', summary(D.rules.drills.map(d => 'rd:' + d.id).concat(D.rules.playouts.map(p => 'pl:' + p.id))))}
+    <div class="card stack"><h3>Школа плана и правила</h3>${rowS('Школа плана', lsAll)}${rowS('Эндшпиль', summary(D.eg.drills.map(d => 'eg:' + d.id)))}${rowS('Золотые правила: позиции и эндшпили', summary(D.rules.drills.map(d => 'rd:' + d.id).concat(D.rules.playouts.map(p => 'pl:' + p.id))))}
       ${(() => { const v = S().vision || {}; const k = Object.keys(v); return k.length ? `<p class="small muted">Визуализация, рекорды: ${k.map(x => ({ square: 'поля', color: 'цвет', knight: 'конь', memory: 'память' }[x] + ' ' + v[x].best)).join(' · ')}</p>` : ''; })()}
       <p class="small muted">Легенда: <span style="color:var(--good)">■</span> освоено · <span style="color:var(--ok)">■</span> повторение · <span style="color:var(--warn)">■</span> изучается</p></div>
   </div>`;

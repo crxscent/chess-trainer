@@ -37,9 +37,10 @@ export function mountPlayout(root, p, { onDone, sessionInfo = '', ruleTitle = ''
       <div class="board-meta"><span><span class="turn-dot ${color}"></span>Ты играешь ${color === 'w' ? 'белыми' : 'чёрными'}</span><span class="mv"></span></div>
     </div>
     <div class="panel"><div class="card">
-      <div class="row between mb"><div class="row"><span class="badge good">Эндшпиль против базы</span>${ruleTitle ? `<span class="badge">${esc(ruleTitle)}</span>` : ''}</div><span class="timer">${esc(sessionInfo)}</span></div>
+      <div class="row between mb"><div class="row"><span class="badge good">${p.topic === 'apply' ? 'Из твоей партии' : 'Эндшпиль против базы'}</span>${ruleTitle ? `<span class="badge">${esc(ruleTitle)}</span>` : ''}</div><span class="timer">${esc(sessionInfo)}</span></div>
       <h2>${esc(p.title)}</h2>
       <p><b>${GOAL_T[p.goal]}</b>${p.goal === 'draw' ? ` — продержись ${p.maxMoves} ходов` : ` — не больше чем за ${p.maxMoves} ходов`}. Соперник защищается идеально: каждый его ход взят из эндшпильной базы.</p>
+      ${p.game ? `<p class="small muted">Партия на lichess: <a target="_blank" rel="noopener" href="https://lichess.org/${esc(p.game)}">${esc(p.game)} ↗</a></p>` : ''}
       <details class="mb"><summary>Подсказка</summary><p class="small mt">${richText(p.hint)}</p></details>
       <div class="status comment">Загружаю базу…</div>
       <div class="row mt actions"></div>
@@ -57,7 +58,7 @@ export function mountPlayout(root, p, { onDone, sessionInfo = '', ruleTitle = ''
   function setStatus(html, cls = '') { status.className = 'status comment ' + (cls ? 'verdict ' + cls : ''); status.innerHTML = html; }
 
   async function start() {
-    board.setPosition(p.fen); myMoves = 0;
+    board.setPosition(p.fen, p.last); myMoves = 0;
     actions.innerHTML = '';
     mvEl.textContent = '';
     try { await probe(p.fen); } catch (e) { setStatus('Не удалось связаться с эндшпильной базой lichess. Проверь интернет и попробуй ещё раз.', 'bad'); actions.innerHTML = '<button class="btn" data-a="retry">Ещё раз</button>'; actions.querySelector('[data-a=retry]').onclick = start; return; }
@@ -97,6 +98,12 @@ export function mountPlayout(root, p, { onDone, sessionInfo = '', ruleTitle = ''
     const ch = board.chess;
     if (ch.isCheckmate()) { busy = false; return finish(); }
     if (p.goal === 'win' && mv.promotion && okCat(cat)) { busy = false; return win('Пешка превратилась, выигрыш сохранён.'); }
+    {
+      const pcs = ch.board().flat().filter(Boolean);
+      const oppPieces = pcs.filter(x => x.color === opp);
+      if (p.goal === 'win' && oppPieces.length === 1 && startOpp > 1) { busy = false; return win('У соперника остался один король — дальше простой мат по технике.'); }
+      if (p.goal === 'draw' && !pcs.some(x => x.type === 'p')) { busy = false; return win('Пешек не осталось — ничья удержана.'); }
+    }
     if (p.goal === 'draw' && myMoves >= p.maxMoves) { busy = false; return win(`Ты продержался ${p.maxMoves} ходов — ничья в руках.`); }
     if (p.goal !== 'draw' && myMoves >= p.maxMoves) { busy = false; return lose(`Выигрыш сохранён, но ${p.maxMoves} ходов не хватило — техника должна быть быстрее.`); }
     if (ch.isGameOver()) { busy = false; return finish(); }
@@ -120,7 +127,8 @@ export function mountPlayout(root, p, { onDone, sessionInfo = '', ruleTitle = ''
     setStatus(`Соперник: <b>${esc(fig(pick.san))}</b>. Твой ход.`);
     yourTurn();
   }
-  let prevFen = p.fen; let prevLast = null;
+  let prevFen = p.fen; let prevLast = p.last || null;
+  const startOpp = new Chess(p.fen).board().flat().filter(x => x && x.color === opp).length;
   // запоминаем позицию перед своим ходом
   const origAllow = board.allowMoves.bind(board);
   board.allowMoves = (c, cb) => { prevFen = board.fen(); origAllow(c, cb); };
