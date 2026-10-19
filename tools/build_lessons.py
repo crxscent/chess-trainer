@@ -26,7 +26,7 @@ def build_items(L, eng, depth=DEPTH):
           src = (ct + ': ' + ' '.join(san[-6:]) if len(san) > 6 else ct) if ct else 'После ' + ' '.join(san)
       col = b.turn
       n = b.legal_moves.count()
-      infos = eng.analyse(b, chess.engine.Limit(depth=depth), multipv=min(n, 8))
+      infos = eng.analyse(b, chess.engine.Limit(depth=depth, time=20), multipv=min(n, 8))
       ev = {i['pv'][0]: cp(i['score'], col) for i in infos}
       pv = {i['pv'][0]: i['pv'] for i in infos}
       # ходы из вариантов ответа, не попавшие в топ-8, считаем отдельно
@@ -36,7 +36,7 @@ def build_items(L, eng, depth=DEPTH):
       for m in d.get('accept', []) + [p for p, _ in d.get('partial', [])]:
           need.add(b.parse_san(m))
       for m in need - set(ev):
-          r = eng.analyse(b, chess.engine.Limit(depth=depth), root_moves=[m])
+          r = eng.analyse(b, chess.engine.Limit(depth=depth, time=20), root_moves=[m])
           ev[m] = cp(r['score'], col); pv[m] = r['pv']
       best = max(ev, key=ev.get)
       print(f"== {d['id']}  ({'w' if col else 'b'})  best {b.san(best)} {ev[best]}  top: " + ', '.join(f"{b.san(m)}({v})" for m, v in sorted(ev.items(), key=lambda x: -x[1])[:5]))
