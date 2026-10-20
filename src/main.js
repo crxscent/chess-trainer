@@ -13,6 +13,7 @@ import { renderGuide, renderCard } from './views/guide.js';
 import { renderVision } from './views/vision.js';
 import { renderRepCheck } from './views/repcheck.js';
 import { renderEndgames, egIds } from './views/endgames.js';
+import { mountEval } from './views/evaldrill.js';
 
 const app = document.getElementById('app');
 let cleanup = null;
@@ -41,6 +42,7 @@ const NAV = [
   ['review', 'Разбор партии', '✎'], ['guide', 'Справочник', '📖'], ['more', 'Ещё', '⋯'],
 ];
 const MORE = [
+  ['session/eval', 'Оценка позиции', '◇', 'Особенности → дисбаланс → план → ответ соперника → после размена заново'],
   ['vision', 'Визуализация', '👁', 'Найди поле, цвет поля, маршруты коня, позиция по памяти'],
   ['repcheck', 'Проверка репертуара', '✓', 'Где ты и соперники отклонялись от курсов в живых партиях'],
   ['journal', 'Дневник', '☰', 'Типичные ошибки, разборы, самооценка'],
@@ -51,7 +53,7 @@ const MORE = [
 ];
 const BOTTOM = ['today', 'ex', 'rules', 'openings', 'more'];
 function renderNav(route) {
-  const top = route.split('/')[0];
+  const top = route.startsWith('session/eval') ? 'session/eval' : route.split('/')[0];
   const inMore = MORE.some(m => m[0] === top) || top === 'more';
   document.getElementById('nav').innerHTML = NAV.map(([k, t]) => `<a href="#/${k}" class="${top === k || (k === 'more' && inMore) ? 'active' : ''}">${t}</a>`).join('');
   const more = inMore || ['review', 'guide', 'plan', 'endgames'].includes(top);
@@ -117,6 +119,7 @@ window.addEventListener('hashchange', route);
 // ---------- ID-шники ----------
 const exIds = (D, f = () => true) => D.ex.filter(f).map(e => 'ex:' + e.id);
 const lsIds = (D, f = () => true) => D.ls.filter(f).map(l => 'ls:' + l.id);
+const evIds = D => D.ex.filter(e => ['plan', 'pawn', 'active', 'convert', 'endgame'].includes(e.cat) && Math.abs(e.before ?? 0) <= 400).sort((a, b) => (b.weight || 0) - (a.weight || 0)).map(e => 'ev:' + e.id);
 const olIds = (D, courseId) => D.op.courses.filter(c => !courseId || c.id === courseId).flatMap(c => c.lines.map(l => 'ol:' + l.id));
 
 // Приоритет новых упражнений: сначала главные темы (профилактика, пешки, реализация)
@@ -144,6 +147,7 @@ function dailyPlan(D) {
   const q3 = buildQueue(exConv.map(e => 'ex:' + e.id), 'ex', { newLimit: Math.max(0, nEx - Math.ceil(nEx * 0.35) * 2), maxDue: 5 });
   const q4 = buildQueue(olIds(D), 'ol', { newLimit: nOl, maxDue: 12 });
   const qEg = buildQueue(egIds(D.eg), 'ls', { newLimit: 1, maxDue: 3 });
+  const qEv = buildQueue(evIds(D), 'ex', { newLimit: 1, maxDue: 2 });
   const rd = ruleOfDay(D);
   const ruleOwnAll = D.rules.rules.flatMap(r => r.drills.map(x => 'rd:' + x).concat(r.playouts.map(x => 'pl:' + x)));
   const dueRule = buildQueue(ruleOwnAll, 'ls', { newLimit: 0, maxDue: 3 }).due;
@@ -151,7 +155,7 @@ function dailyPlan(D) {
   const freshRule = own.filter(id => status(id) === 'new').slice(0, 2);
   return [
     { key: 'rule', t: 'Золотое правило дня', d: rd.title, min: 5, items: [...new Set(dueRule.concat(freshRule))], rule: rd },
-    { key: 'pos', t: 'Позиционные задачи', d: 'План, худшая фигура, «нужен ли пешечный ход?»', min: 15, items: interleave(q1ls.all.map(x => ({ x, k: 'ls' })).concat(q1ex.all.map(x => ({ x, k: 'ex' }))), o => o.k).map(o => o.x) },
+    { key: 'pos', t: 'Позиционные задачи', d: 'Оценка позиции, план, худшая фигура, «нужен ли пешечный ход?»', min: 15, items: qEv.all.concat(interleave(q1ls.all.map(x => ({ x, k: 'ls' })).concat(q1ex.all.map(x => ({ x, k: 'ex' }))), o => o.k).map(o => o.x)) },
     { key: 'pro', t: 'Профилактика', d: '«Что хочет соперник?» и проверка CCT из твоих партий', min: 10, items: q2.all },
     { key: 'conv', t: 'Реализация и эндшпиль', d: 'Простой путь к победе + эндшпиль против идеальной защиты', min: 10, items: q3.all.concat(qEg.all) },
     { key: 'open', t: 'Дебюты', d: 'Повторение линий по памяти', min: 5, items: q4.all },
@@ -203,6 +207,9 @@ function pageToday(D) {
       <div class="card questions">
         <h3>Перед каждым ходом — 4 вопроса</h3>
         <ol><li>Что изменилось после последнего хода соперника?</li><li>Что он хочет сделать следующим ходом?</li><li>Какая моя фигура стоит хуже всего?</li><li>Могу ли я улучшить её без пешечного хода?</li></ol>
+        <h3 class="mt">Оценка позиции — до поиска хода</h3>
+        <ol class="small"><li>Особенности: слабости, сильные поля, линии, структура, активность.</li><li>План, который использует конкретный дисбаланс.</li><li>Не помогает ли мой план сопернику?</li><li>После размена или смены структуры — оцени заново.</li></ol>
+        <div class="row"><a class="btn small" href="#/session/eval">Тренировать оценку →</a></div>
         <div class="rule-big">${esc(rule)}</div>
       </div>
       <div class="grid g3">
@@ -243,6 +250,9 @@ function pageSession(D, kind) {
     const cid = kind.slice(6); const c = D.op.courses.find(x => x.id === cid);
     const fresh = olIds(D, cid).filter(id => status(id) === 'new').slice(0, 3);
     queue = fresh.map(id => ({ id, block: 'Новые линии', learn: true }));
+  } else if (kind === 'eval') {
+    const q = buildQueue(evIds(D), 'ex', { newLimit: 5, maxDue: 10 });
+    queue = q.all.map(id => ({ id, block: 'Оценка позиции' })); title = 'Оценка позиции';
   } else if (kind.startsWith('eg-one-')) {
     queue = [{ id: 'eg:' + kind.slice(7), block: 'Эндшпиль' }];
   } else if (kind.startsWith('eg-')) {
@@ -284,7 +294,8 @@ function pageSession(D, kind) {
     const kindOf = id => id.startsWith('ol:') ? 'ol' : id.startsWith('ex:') ? 'ex' : 'ls';
     const done = g => { tick(); results.push({ id: q.id, g }); grade(q.id, g, kindOf(q.id)); k++; show(); };
     const [type, ...r] = q.id.split(':'); const rid = r.join(':');
-    if (type === 'eg') { const d = D.egById[rid]; if (!d) { k++; return show(); } cur = d.type === 'move' ? mountLesson(app, d, { onDone: done, sessionInfo: info, badge: 'Эндшпиль', ruleTitle: d.title }) : mountPlayout(app, d, { onDone: done, sessionInfo: info }); }
+    if (type === 'ev') { const ex = D.exById[rid]; if (!ex) { k++; return show(); } cur = mountEval(app, JSON.parse(JSON.stringify(ex)), { onDone: done, sessionInfo: info }); }
+    else if (type === 'eg') { const d = D.egById[rid]; if (!d) { k++; return show(); } cur = d.type === 'move' ? mountLesson(app, d, { onDone: done, sessionInfo: info, badge: 'Эндшпиль', ruleTitle: d.title }) : mountPlayout(app, d, { onDone: done, sessionInfo: info }); }
     else if (type === 'rd') { const d = D.drillById[rid]; if (!d) { k++; return show(); } cur = mountLesson(app, d, { onDone: done, sessionInfo: info, badge: 'Золотое правило', ruleTitle: D.ruleById[d.rule]?.title }); }
     else if (type === 'pl') { const p = D.playoutById[rid]; if (!p) { k++; return show(); } cur = mountPlayout(app, p, { onDone: done, sessionInfo: info, ruleTitle: D.ruleById[p.rule]?.title }); }
     else if (type === 'ex') { const ex = D.exById[rid]; if (!ex) { k++; return show(); } cur = mountExercise(app, JSON.parse(JSON.stringify(ex)), { onDone: done, sessionInfo: info }); }

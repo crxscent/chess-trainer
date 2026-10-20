@@ -21,7 +21,7 @@ export const MISTAKE_TAGS = [
 
 const PIECE_RU = { p: 'пешка', n: 'конь', b: 'слон', r: 'ладья', q: 'ферзь', k: 'король' };
 
-function verdictOf(ex, uci) {
+export function verdictOf(ex, uci) {
   const ev = ex.evals;
   const best = Math.max(...Object.values(ev));
   const mine = ev[uci];

@@ -11,6 +11,7 @@ export function rulePractice(D, r) {
   const cats = r.links.ex || []; const tags = r.links.tags || [];
   const ex = D.ex.filter(e => cats.includes(e.cat) || (e.tags || []).some(t => tags.includes(t)))
     .sort((a, b) => (b.weight || 0) - (a.weight || 0)).map(e => 'ex:' + e.id);
+  if (r.links.eval) D.ex.filter(e => ['plan', 'pawn', 'active', 'convert', 'endgame'].includes(e.cat) && Math.abs(e.before ?? 0) <= 400).sort((a, b) => (b.weight || 0) - (a.weight || 0)).slice(0, 12).forEach(e => ids.push('ev:' + e.id));
   return { own: ids, ex };
 }
 
