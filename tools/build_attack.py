@@ -57,7 +57,10 @@ def classify(b, best, before, threat_drop, second_gap, threat_moves=None):
     if closed_center(b) and flank_push_to_king(b, m): return 'storm'
     tfrom = chess.Move.from_uci(threat_moves[0][0]).from_square if threat_moves else None
     if threat_drop >= 120 and before <= 200:
-        if b.is_capture(m) and tfrom is not None and m.to_square == tfrom: return 'initiative'
+        cap = b.piece_at(m.to_square)
+        if b.is_capture(m) and tfrom is not None and m.to_square == tfrom and cap and cap.piece_type != chess.PAWN and before <= 80:
+            bb = b.copy(); bb.push(m)
+            if bb.is_attacked_by(bb.turn, m.to_square): return 'initiative'  # именно размен, а не взятие висящей фигуры
         mk = b.king(me)
         tto = chess.Move.from_uci(threat_moves[0][0]).to_square if threat_moves else None
         if king_zone_attackers(b, me) >= 2 or (tto is not None and chess.square_distance(tto, mk) <= 2):
@@ -125,12 +128,12 @@ def from_games(path):
                             text=text_for(b, best, ev, pvs, cat, played, reply), rule=RULES[cat]))
     return out
 
-def selfplay(n_per_line, plies=24):
+def selfplay(n_per_line, plies=16):
     """Самоигра из концов дебютных линий; ищем позиции с чётким лучшим ходом по теме."""
     op = json.load(open(os.path.join(ROOT, 'data', 'openings.json')))
     starts = []
     for c in op['courses']:
-        if c['id'] not in ('ruy', 'dragon', 'alapin', 'french', 'goring', 'qg'): continue
+        if c['id'] not in os.environ.get('SP_COURSES', 'ruy,dragon').split(','): continue
         for l in c['lines']:
             b = chess.Board()
             for m in l['moves']: b.push_uci(m['uci'])
@@ -169,6 +172,7 @@ def selfplay(n_per_line, plies=24):
                                               evals=ev, pvs=pvs, best=bb, before=ev[bb], weight=gap / 10,
                                               threat=None, text=text_for(b, bb, ev, pvs, cat), rule=RULES[cat]))
                             print(len(found), cat, ctitle, lname, b.fen(), flush=True)
+                            json.dump(found, open(os.path.join(ROOT, 'raw', 'selfplay.json'), 'w'))
                 # случайный ход среди почти лучших — разнообразие
                 good = [m for m, v in sc if v >= sc[0][1] - 25]
                 b.push(random.choice(good))

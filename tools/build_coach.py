@@ -56,6 +56,6 @@ if ws:
 ruy = [r for r in rows if r['fam'] == 'Испанская (белыми)']
 if ruy:
     notes.append(f'Испанская: {len(ruy)} партий, первая серьёзная ошибка в проигранных — около {ops[0]["firstBad"]}-го хода. Это миддлшпиль после дебюта: тренируй «Сыграй структуру» в закрытой и открытой испанской.')
-json.dump(dict(split=SPLIT.replace('.', '-')[5:].replace('-', '.'), base=agg(base), recent=agg(recent), openings=ops, notes=notes),
+json.dump(dict(split='9 октября', base=agg(base), recent=agg(recent), openings=ops, notes=notes),
           open(os.path.join(ROOT, 'data', 'coach.json'), 'w'), ensure_ascii=False)
 print(json.dumps(dict(base=agg(base), recent=agg(recent), openings=ops), ensure_ascii=False, indent=0)[:1500]); print(notes)

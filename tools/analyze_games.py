@@ -8,9 +8,17 @@ def wp(cp): cp = max(-1500, min(1500, cp)); return 50 + 50 * (2 / (1 + math.exp(
 def sc(s, pov): return s.pov(pov).score(mate_score=10000)
 
 def work(pgn):
+    for attempt in range(3):
+        try:
+            return _work(pgn)
+        except Exception as e:
+            import time; time.sleep(5)
+    return None
+
+def _work(pgn):
     g = chess.pgn.read_game(io.StringIO(pgn))
     h = dict(g.headers); col = chess.WHITE if h['White'].lower() == ME else chess.BLACK
-    eng = chess.engine.SimpleEngine.popen_uci('stockfish'); eng.configure({'Threads': 1, 'Hash': 64})
+    eng = chess.engine.SimpleEngine.popen_uci('stockfish', timeout=60); eng.configure({'Threads': 1, 'Hash': 64})
     b = g.board(); plies = []
     for mv in list(g.mainline_moves()) + [None]:
         if b.is_game_over():
@@ -68,7 +76,7 @@ if __name__ == '__main__':
         for l in open(outp): done.add(json.loads(l)['headers'].get('GameId'))
     todo = [c for c in chunks if not any(f'[GameId "{d}"]' in c for d in done)]
     print('todo', len(todo), 'done', len(done), flush=True)
-    with Pool(7) as pool, open(outp, 'a') as f:
+    with Pool(6) as pool, open(outp, 'a') as f:
         for k, r in enumerate(pool.imap_unordered(work, todo)):
-            f.write(json.dumps(r) + '\n'); f.flush()
+            if r: f.write(json.dumps(r) + '\n'); f.flush()
             if k % 25 == 0: print(k, flush=True)
