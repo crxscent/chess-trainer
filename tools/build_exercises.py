@@ -207,7 +207,7 @@ def main(apath, dpath):
     # первая ошибка в каждой проигранной партии
     first_bad = {}
     for g in G:
-        h = g['headers']; col = chess.WHITE if h['White'] == ME else chess.BLACK; P = g['plies']
+        h = g['headers']; col = chess.WHITE if h['White'].lower() == ME.lower() else chess.BLACK; P = g['plies']
         for i, p in enumerate(P[:-1]):
             b = chess.Board(p['fen'])
             if b.turn != col: continue
@@ -248,7 +248,10 @@ def main(apath, dpath):
         if reply and reply not in bafter.legal_moves: reply = None
         # угроза (ход «с пропуском»)
         threat = None
-        if d.get('threat') and not b.is_check():
+        if d.get('tmulti') and not b.is_check():
+            mv = sorted([tuple(x) for x in d['tmulti']], key=lambda x: x[1])
+            threat = dict(drop=before - mv[0][1], moves=[list(x) for x in mv], pv=[mv[0][0]])
+        elif d.get('threat') and not b.is_check():
             nb = b.copy(); nb.push(chess.Move.null())
             nb2 = chess.Board(nb.fen())
             infos = eng.analyse(nb2, chess.engine.Limit(depth=12), multipv=4)
@@ -338,7 +341,7 @@ def main(apath, dpath):
 def diagnosis(G, exercises, first_bad):
     rows = []; games = []
     for g in G:
-        h = g['headers']; col = chess.WHITE if h['White'] == ME else chess.BLACK; P = g['plies']
+        h = g['headers']; col = chess.WHITE if h['White'].lower() == ME.lower() else chess.BLACK; P = g['plies']
         r = h['Result']; res = 'win' if (r == '1-0' and col) or (r == '0-1' and not col) else ('draw' if r == '1/2-1/2' else 'loss')
         mx = 0; mxi = None; coll = None
         for i, p in enumerate(P[:-1]):

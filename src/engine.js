@@ -30,7 +30,7 @@ function boot() {
 export function engineAvailable() { return wasmOk(); }
 
 // Возвращает массив линий [{move, cp, mate, pv[], depth}] с оценкой с точки зрения стороны на ходу.
-export function analyse(fen, { depth = 12, multipv = 1, movetime = null, moves = null } = {}) {
+export function analyse(fen, { depth = 12, multipv = 1, movetime = null, moves = null, skill = 20 } = {}) {
   const job = async () => {
     await boot();
     return new Promise(resolve => {
@@ -50,12 +50,15 @@ export function analyse(fen, { depth = 12, multipv = 1, movetime = null, moves =
         } else if (line.startsWith('bestmove')) {
           handler = null;
           const arr = [...lines.entries()].sort((a, b) => a[0] - b[0]).map(x => x[1]);
-          if (!arr.length) { const bm = line.split(' ')[1]; if (bm && bm !== '(none)') arr.push({ move: bm, cp: 0, pv: [bm], depth: 0 }); }
+          const bm = line.split(' ')[1];
+          if (!arr.length && bm && bm !== '(none)') arr.push({ move: bm, cp: 0, pv: [bm], depth: 0 });
+          arr.bestmove = bm && bm !== '(none)' ? bm : null; // при Skill Level < 20 это ослабленный выбор движка
           resolve(arr);
         }
       };
       worker.postMessage('ucinewgame');
       worker.postMessage(`setoption name MultiPV value ${multipv}`);
+      worker.postMessage(`setoption name Skill Level value ${skill}`);
       worker.postMessage(`position fen ${fen}`);
       const lim = movetime ? `movetime ${movetime}` : `depth ${depth}`;
       worker.postMessage(`go ${lim}${moves ? ' searchmoves ' + moves.join(' ') : ''}`);
