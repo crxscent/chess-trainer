@@ -55,7 +55,7 @@ export async function renderCoach(app, D) {
   <div class="grid g2 mt">
     <div class="card"><h3>Тренировки</h3>
       <div class="small muted mb">Последние 14 дней: ${last14.map(x => `<span title="${x}" style="display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:2px;background:${x ? (x >= 15 ? 'var(--good)' : 'color-mix(in srgb, var(--good) 45%, var(--panel2))') : 'var(--panel2)'}"></span>`).join('')}</div>
-      <table class="mvtable"><tbody>${Object.entries(T.byKind).map(([k, v]) => `<tr><td>${{ ex: 'Мои ошибки', ls: 'Школа плана', ol: 'Дебюты', rd: 'Правила', pl: 'Эндшпиль (правила)', eg: 'Эндшпиль', ev: 'Оценка позиции', ak: 'Атака и защита', pp: 'Сыграй структуру' }[k] || k}</td><td class="muted">${v.n} карточек</td><td>${v.att ? pct(v.ok / v.att) : '—'} уверенно</td></tr>`).join('') || '<tr><td class="muted">нет данных</td></tr>'}</tbody></table>
+      <table class="mvtable"><tbody>${Object.entries(T.byKind).map(([k, v]) => `<tr><td>${{ ex: 'Мои ошибки', ls: 'Школа плана', ol: 'Дебюты', rd: 'Правила', pl: 'Эндшпиль (правила)', eg: 'Эндшпиль', ev: 'Оценка позиции', ak: 'Атака и защита', pp: 'Сыграй структуру', gk: 'Курс Гальченко' }[k] || k}</td><td class="muted">${v.n} карточек</td><td>${v.att ? pct(v.ok / v.att) : '—'} уверенно</td></tr>`).join('') || '<tr><td class="muted">нет данных</td></tr>'}</tbody></table>
       ${catAcc.length ? `<h4 class="mt">По темам задач</h4><table class="mvtable"><tbody>${catAcc.map(([c, a]) => `<tr><td>${esc(CATS[c]?.t || c)}</td><td>${pct(a)}</td></tr>`).join('')}</tbody></table>` : ''}
     </div>
     <div class="card"><h3>Партии: до и после</h3>${G ? `

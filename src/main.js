@@ -17,6 +17,7 @@ import { mountEval } from './views/evaldrill.js';
 import { renderAttack, atkIds } from './views/attack.js';
 import { mountPlay } from './views/playpos.js';
 import { renderCoach } from './views/coach.js';
+import { renderGalchenko, gkIds } from './views/galchenko.js';
 
 const app = document.getElementById('app');
 let cleanup = null;
@@ -25,8 +26,10 @@ let cleanup = null;
 let DATA = null;
 async function data() {
   if (DATA) return DATA;
-  const [ex, op, ls, rules, eg, atk] = await Promise.all([getJSON('data/exercises.json'), getJSON('data/openings.json'), getJSON('data/lessons.json'), getJSON('data/rules.json'), getJSON('data/endgames.json'), getJSON('data/attack.json')]);
-  DATA = { ex: ex.concat(S().customEx || []), op, ls, rules, eg, atk };
+  const [ex, op, ls, rules, eg, atk, gk] = await Promise.all([getJSON('data/exercises.json'), getJSON('data/openings.json'), getJSON('data/lessons.json'), getJSON('data/rules.json'), getJSON('data/endgames.json'), getJSON('data/attack.json'), getJSON('data/galchenko.json')]);
+  DATA = { ex: ex.concat(S().customEx || []), op, ls, rules, eg, atk, gk };
+  DATA.gkById = Object.fromEntries(gk.drills.map(d => [d.id, d]));
+  DATA.gkLesson = Object.fromEntries(gk.lessons.map(l => [l.id, l]));
   DATA.akById = Object.fromEntries(atk.drills.map(d => [d.id, d]));
   DATA.ppById = Object.fromEntries(atk.play.map(p => [p.id, p]));
   DATA.egById = Object.fromEntries(eg.drills.map(d => [d.id, d]));
@@ -43,7 +46,7 @@ export function refreshCustom() { if (DATA) { DATA = null; } }
 
 // ---------- навигация ----------
 const NAV = [
-  ['today', 'Сегодня', '☀'], ['ex', 'Мои ошибки', '♟'], ['rules', 'Золотые правила', '★'], ['plan', 'Школа плана', '♜'], ['attack', 'Атака и защита', '⚔'], ['endgames', 'Эндшпиль', '♚'], ['openings', 'Дебюты', '♞'],
+  ['today', 'Сегодня', '☀'], ['ex', 'Мои ошибки', '♟'], ['rules', 'Золотые правила', '★'], ['plan', 'Школа плана', '♜'], ['attack', 'Атака и защита', '⚔'], ['endgames', 'Эндшпиль', '♚'], ['openings', 'Дебюты', '♞'], ['galchenko', 'Курс Гальченко', '▶'],
   ['review', 'Разбор партии', '✎'], ['guide', 'Справочник', '📖'], ['more', 'Ещё', '⋯'],
 ];
 const MORE = [
@@ -62,7 +65,7 @@ function renderNav(route) {
   const top = route.startsWith('session/eval') ? 'session/eval' : route.split('/')[0];
   const inMore = MORE.some(m => m[0] === top) || top === 'more';
   document.getElementById('nav').innerHTML = NAV.map(([k, t]) => `<a href="#/${k}" class="${top === k || (k === 'more' && inMore) ? 'active' : ''}">${t}</a>`).join('');
-  const more = inMore || ['review', 'guide', 'plan', 'endgames', 'attack'].includes(top);
+  const more = inMore || ['review', 'guide', 'plan', 'endgames', 'attack', 'galchenko'].includes(top);
   document.getElementById('bottomnav').innerHTML = BOTTOM.map(k => {
     if (k === 'more') return `<a href="#/more" class="${more ? 'active' : ''}"><span class="i">⋯</span>Ещё</a>`;
     const n = NAV.find(x => x[0] === k);
@@ -110,6 +113,7 @@ async function route() {
       case 'rules': cleanup = renderRules(app, D); return;
       case 'attack': cleanup = renderAttack(app, D, arg); return;
       case 'coach': cleanup = await renderCoach(app, D); return;
+      case 'galchenko': cleanup = renderGalchenko(app, D, arg); return;
       case 'endgames': cleanup = renderEndgames(app, D, arg); return;
       case 'guide': cleanup = await renderGuide(app, arg); return;
       case 'card': cleanup = renderCard(app); return;
@@ -160,6 +164,7 @@ function dailyPlan(D) {
   const qEg = buildQueue(egIds(D.eg), 'ls', { newLimit: 1, maxDue: 3 });
   const qEv = buildQueue(evIds(D), 'ex', { newLimit: 1, maxDue: 2 });
   const qAk = buildQueue(atkIds(D.atk), 'ls', { newLimit: cut < 1 ? 1 : 2, maxDue: 4 });
+  const qGk = buildQueue(gkIds(D.gk), 'ls', { newLimit: cut < 1 ? 1 : 3, maxDue: 5 });
   const rd = ruleOfDay(D);
   const ruleOwnAll = D.rules.rules.flatMap(r => r.drills.map(x => 'rd:' + x).concat(r.playouts.map(x => 'pl:' + x)));
   const dueRule = buildQueue(ruleOwnAll, 'ls', { newLimit: 0, maxDue: 3 }).due;
@@ -169,6 +174,7 @@ function dailyPlan(D) {
     { key: 'rule', t: 'Золотое правило дня', d: rd.title, min: 5, items: [...new Set(dueRule.concat(freshRule))], rule: rd },
     { key: 'pos', t: 'Позиционные задачи', d: 'Оценка позиции, план, худшая фигура, «нужен ли пешечный ход?»', min: 15, items: qEv.all.concat(interleave(q1ls.all.map(x => ({ x, k: 'ls' })).concat(q1ex.all.map(x => ({ x, k: 'ex' }))), o => o.k).map(o => o.x)) },
     { key: 'pro', t: 'Профилактика', d: '«Что хочет соперник?» и проверка CCT из твоих партий', min: 10, items: q2.all },
+    { key: 'gk', t: 'Курс Гальченко', d: 'Идеи уроков, позиции из видео, домашние задания', min: 8, items: qGk.all },
     { key: 'atk', t: 'Атака и защита', d: 'Атака, штурм при закрытом центре, защита, слом инициативы', min: 8, items: qAk.all },
     { key: 'conv', t: 'Реализация и эндшпиль', d: 'Простой путь к победе + эндшпиль против идеальной защиты', min: 10, items: q3.all.concat(qEg.all) },
     { key: 'open', t: 'Дебюты', d: 'Повторение линий по памяти', min: 5, items: q4.all },
@@ -267,6 +273,10 @@ function pageSession(D, kind) {
     const t = kind.slice(4); const ids = atkIds(D.atk, t === 'all' ? null : t);
     const q = buildQueue(ids, 'ls', { newLimit: t === 'all' ? 6 : 8 });
     queue = (q.all.length ? q.all : ids.slice(0, 8)).map(id => ({ id, block: 'Атака и защита' })); title = 'Атака и защита';
+  } else if (kind.startsWith('gk-')) {
+    const t = kind.slice(3); const ids = gkIds(D.gk, t === 'all' ? null : t);
+    const q = buildQueue(ids, 'ls', { newLimit: t === 'all' ? 8 : 99 });
+    queue = (q.all.length ? q.all : ids).map(id => ({ id, block: t === 'all' ? 'Курс Гальченко' : D.gkLesson[t]?.title || 'Курс Гальченко' })); title = 'Курс Гальченко';
   } else if (kind.startsWith('pp-')) {
     queue = [{ id: 'pp:' + kind.slice(3), block: 'Сыграй структуру' }];
   } else if (kind.startsWith('one-')) {
@@ -315,7 +325,8 @@ function pageSession(D, kind) {
     const kindOf = id => id.startsWith('ol:') ? 'ol' : id.startsWith('ex:') ? 'ex' : 'ls';
     const done = g => { tick(); results.push({ id: q.id, g }); grade(q.id, g, kindOf(q.id)); k++; show(); };
     const [type, ...r] = q.id.split(':'); const rid = r.join(':');
-    if (type === 'ak') { const d = D.akById[rid]; if (!d) { k++; return show(); } cur = mountExercise(app, JSON.parse(JSON.stringify(d)), { onDone: done, sessionInfo: info }); }
+    if (type === 'gk') { const d = D.gkById[rid]; if (!d) { k++; return show(); } cur = mountLesson(app, d, { onDone: done, sessionInfo: info, badge: 'Курс Гальченко', ruleTitle: D.gkLesson[d.lesson]?.title }); }
+    else if (type === 'ak') { const d = D.akById[rid]; if (!d) { k++; return show(); } cur = mountExercise(app, JSON.parse(JSON.stringify(d)), { onDone: done, sessionInfo: info }); }
     else if (type === 'pp') { const p = D.ppById[rid]; if (!p) { k++; return show(); } cur = mountPlay(app, p, { onDone: done, sessionInfo: info }); }
     else if (type === 'ev') { const ex = D.exById[rid]; if (!ex) { k++; return show(); } cur = mountEval(app, JSON.parse(JSON.stringify(ex)), { onDone: done, sessionInfo: info }); }
     else if (type === 'eg') { const d = D.egById[rid]; if (!d) { k++; return show(); } cur = d.type === 'move' ? mountLesson(app, d, { onDone: done, sessionInfo: info, badge: 'Эндшпиль', ruleTitle: d.title }) : mountPlayout(app, d, { onDone: done, sessionInfo: info }); }
@@ -456,7 +467,7 @@ function pageLine(D, lid) {
 }
 
 function pageMore() {
-  const items = [['attack', 'Атака и защита', '⚔', 'Атака на короля, штурм, защита, слом инициативы, сыграй структуру'], ['endgames', 'Эндшпиль', '♚', 'Лусена, Филидор, пешечные, основы и эндшпили из твоих партий'], ['plan', 'Школа плана', '♜', 'Задачи «найди план» в структурах твоего репертуара'], ['review', 'Разбор партии', '✎', 'Свои партии: сначала без движка, потом проверка; новые упражнения'], ['guide', 'Справочник', '📖', 'Структуры, атакующие схемы, время, тильт, план на месяц']].concat(MORE);
+  const items = [['galchenko', 'Курс Гальченко', '▶', 'Конспекты видеоуроков «Крепыш» и «Громила» и задачи по ним'], ['attack', 'Атака и защита', '⚔', 'Атака на короля, штурм, защита, слом инициативы, сыграй структуру'], ['endgames', 'Эндшпиль', '♚', 'Лусена, Филидор, пешечные, основы и эндшпили из твоих партий'], ['plan', 'Школа плана', '♜', 'Задачи «найди план» в структурах твоего репертуара'], ['review', 'Разбор партии', '✎', 'Свои партии: сначала без движка, потом проверка; новые упражнения'], ['guide', 'Справочник', '📖', 'Структуры, атакующие схемы, время, тильт, план на месяц']].concat(MORE);
   app.innerHTML = `<div class="page-head"><h1>Ещё</h1></div><div class="list">${items.map(([k, t, i, d]) => `<a class="item" href="#/${k}"><span style="font-size:20px;width:28px;text-align:center">${i}</span><div class="grow"><div class="title">${t}</div><div class="sub">${d}</div></div><span>→</span></a>`).join('')}</div>`;
 }
 
