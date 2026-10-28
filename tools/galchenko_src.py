@@ -89,3 +89,22 @@ dict(id='gk3g-sic-bxc3', lesson='G3', theme='trap', title='Сицилианск�
      accept=['Bxc3+'], partial=[('gxf6', 'Слишком просто: промежуточный …Bxc3+ выигрывает больше.')],
      explain='7…Bxc3+! 8.bxc3 Qxc3+ (ферзём закрыться нельзя — висит ладья a1) 9.Ke2 gxf6 — у чёрных лишняя пешка и разбитая позиция белого короля.'),
 ]
+
+# ---------------- Громила 1 / Крепыш 1: ловушки в Алапине (за белых) ----------------
+G += [
+dict(id='gk1g-alapin-g6', lesson='G1', theme='trap', title='Алапин: 4…g6?', type='move',
+     moves='e4 c5 c3 Nc6 d4 cxd4 cxd4 g6',
+     q='Чёрные не сыграли …d5. Как наказать?',
+     accept=['d5'],
+     explain='5.d5! — конь c6 уходит на e5, и после 6.f4 ему некуда деться: c4, d3, g4 и f3 под ударом, d7 занята. Ученик тренера выиграл так партию за 6 ходов.'),
+dict(id='gk1g-alapin-f4', lesson='G1', theme='trap', title='Алапин: поймай коня', type='move',
+     moves='e4 c5 c3 Nc6 d4 cxd4 cxd4 g6 d5 Ne5',
+     q='Конь ушёл в центр. Как его поймать?',
+     accept=['f4'],
+     explain='6.f4! — у коня нет полей: c4 (Bxc4), d3 (Bxd3), g4 (Qxg4), f3 (Nxf3). Фигура выиграна.'),
+dict(id='gk1g-alapin-ke2', lesson='G1', theme='trap', title='Алапин: 10…Nxf3+?', type='move',
+     moves='e4 c5 c3 Nc6 d4 cxd4 cxd4 d5 exd5 Qxd5 Nf3 Bg4 Nc3 Bxf3 gxf3 Qxd4 Qxd4 Nxd4 Nb5 Nxf3+',
+     q='Чёрные взяли пешку с шахом. Куда отступить королём?',
+     accept=['Ke2'],
+     explain='11.Ke2! — король нападает на коня f3, а конь b5 грозит вилкой Nc7+. Обе угрозы не отразить — белые выигрывают материал.'),
+]
