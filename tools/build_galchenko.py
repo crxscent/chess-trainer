@@ -205,7 +205,7 @@ def main_after(node):
 
 def blunder_drills(eng, lid, sid, k, name, task, g):
     mv = list(g.mainline_moves())
-    if lid in ('K1', 'G1', 'G2', 'G3') and opening_of(g.board(), mv) is None:
+    if lid in ('K1', 'G1', 'G3') and opening_of(g.board(), mv) is None:
         return []  # дебютные уроки: только испанская, сицилианская, французская, староиндийская
     evs = quick_evals(eng, g)
     out = []; b = g.board()
