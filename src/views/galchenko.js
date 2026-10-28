@@ -2,7 +2,7 @@
 import { summary } from '../store.js';
 import { esc, pl, richText } from '../ui.js';
 
-const KIND = { trap: ['ловушка', 'warn'], idea: ['идея урока', 'accent'], lesson: ['позиция урока', 'info'], hw: ['домашнее задание', 'violet'], blunder: ['накажи зевок', 'bad'] };
+const KIND = { trap: ['ловушка', 'warn'], idea: ['идея урока', 'accent'], lesson: ['позиция урока', 'info'], hw: ['домашнее задание', 'violet'], video: ['из видео', 'info'], blunder: ['накажи зевок', 'bad'] };
 
 export const gkIds = (G, lessonId) => G.drills.filter(d => !lessonId || d.lesson === lessonId).map(d => 'gk:' + d.id);
 

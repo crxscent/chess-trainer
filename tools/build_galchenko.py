@@ -312,6 +312,29 @@ def trap_drills(eng):
     return out
 
 
+def video_drills(eng):
+    """Позиции, снятые с видео (raw/galchenko/video_drills.json): ход, совпавший с ходом тренера или явно лучший."""
+    p = os.path.join(ROOT, 'raw', 'galchenko', 'video_drills.json')
+    if not os.path.exists(p): return []
+    out = []
+    for v in json.load(open(p, encoding='utf-8')):
+        b = chess.Board(v['fen'])
+        res = analyse(eng, b, 4)
+        if not res: continue
+        best, bv, bpv = res[0]
+        acc = [m for m, val, _ in res if val >= bv - 30 and (bv < 9000 or val >= 9000)]
+        if len(acc) > 2 and not v.get('teacher_match'): continue
+        who = 'белых' if b.turn else 'чёрных'
+        teach = (v.get('teacher_text') or '').strip()
+        explain = (teach + ' ' if teach else '') + f'Движок: {san_line(b, bpv, 8)} ({fmt_eval(bv)}).'
+        out.append(dict(id=mk_id('video', v['fen']), lesson=v['lesson'], kind='video', theme='video', title=v.get('title') or 'Позиция из видеоурока',
+                        fen=b.fen(), color='w' if b.turn else 'b', last=None, orient='white' if b.turn else 'black',
+                        q=f'Ход {who}. Позиция из видеоурока — найди сильнейшее продолжение.', type='move',
+                        accept=[m.uci() for m in acc], partial=[], explain=explain,
+                        line=[m.uci() for m in bpv[:8]], source=f'Видеоурок · {v["video_t"]}'))
+    return out
+
+
 def notes_html(lid):
     p = os.path.join(HERE, 'galchenko_notes', lid + '.md')
     if not os.path.exists(p): return None
@@ -331,7 +354,7 @@ def notes_html(lid):
 
 def main():
     eng = chess.engine.SimpleEngine.popen_uci('stockfish'); eng.configure({'Threads': int(os.environ.get('THREADS', '3')), 'Hash': 256})
-    drills = study_drills(eng) + trap_drills(eng)
+    drills = study_drills(eng) + trap_drills(eng) + video_drills(eng)
     try:
         from galchenko_src import G
         from build_lessons import build_items
