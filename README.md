@@ -44,3 +44,7 @@ python tools/build_guide.py                         # tools/guide_src.py -> data
 ```
 
 Доска — [chessground](https://github.com/lichess-org/chessground) (GPL-3.0), правила — [chess.js](https://github.com/jhlywa/chess.js), движок в браузере — [stockfish.js](https://github.com/niklasf/stockfish.js) (GPL-3.0).
+
+## Как возникла позиция
+
+`tools/add_paths.py` запускается после любой сборки `data/*.json`: находит по FEN ходы от начала партии (`path`, `start`, `gameRef`), пишет `data/games.json` и `data/story.json` (подписи из `tools/story_src.py` и дебютных курсов), раскладывает ловушки по веткам.

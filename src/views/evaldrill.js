@@ -4,6 +4,7 @@ import { analyse, engineAvailable, fmtCp } from '../engine.js';
 import { esc, richText, bindSanChips } from '../ui.js';
 import { factQuiz, featureDiff, featureFacts } from '../features.js';
 import { verdictOf } from './exercise.js';
+import { mountStory } from './story.js';
 
 const STEPS = ['Особенности', 'План', 'Не помогает ли сопернику?', 'После размена', 'Разбор'];
 
@@ -18,6 +19,7 @@ export function mountEval(root, ex, { onDone, sessionInfo = '' } = {}) {
     <div class="panel"><div class="card">
       <div class="row between mb"><span class="badge info">Оценка позиции</span><span class="timer">${esc(sessionInfo)}</span></div>
       <div class="steps">${STEPS.map((s, i) => `<span class="step-pill" data-i="${i}">${s}</span>`).join('')}</div>
+      <div class="story-slot"></div>
       <div class="body"></div>
     </div></div>
   </div>`;
@@ -157,8 +159,10 @@ export function mountEval(root, ex, { onDone, sessionInfo = '' } = {}) {
     };
   }
 
-  step1();
-  return { destroy: () => { dead = true; board.destroy(); } };
+  const story = mountStory(root.querySelector('.story-slot'), board, ex, { fen: ex.fen, last: ex.last });
+  root.querySelector('.trainer').classList.add('playing');
+  story.begin(() => { root.querySelector('.trainer').classList.remove('playing'); story.close(); step1(); });
+  return { destroy: () => { dead = true; story.destroy(); board.destroy(); } };
 }
 
 function lineText(fen, ucis) {

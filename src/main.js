@@ -2,6 +2,7 @@ import { S, settings, save, summary, buildQueue, grade, status, todayLog, streak
 import { esc, toast, getJSON, pl, fmtWhen, fmtMin, $ } from './ui.js';
 import { mountExercise, CATS } from './views/exercise.js';
 import { mountLesson, THEMES } from './views/lesson.js';
+import { setStoryData, setStoryFresh } from './views/story.js';
 import { mountLine, mountLineBrowse } from './views/opening.js';
 import { renderReview } from './views/review.js';
 import { renderJournal } from './views/journal.js';
@@ -27,7 +28,8 @@ let cleanup = null;
 let DATA = null;
 async function data() {
   if (DATA) return DATA;
-  const [ex, op, ls, rules, eg, atk, gk, tr] = await Promise.all([getJSON('data/exercises.json'), getJSON('data/openings.json'), getJSON('data/lessons.json'), getJSON('data/rules.json'), getJSON('data/endgames.json'), getJSON('data/attack.json'), getJSON('data/galchenko.json'), getJSON('data/traps.json')]);
+  const [ex, op, ls, rules, eg, atk, gk, tr, games, story] = await Promise.all([getJSON('data/exercises.json'), getJSON('data/openings.json'), getJSON('data/lessons.json'), getJSON('data/rules.json'), getJSON('data/endgames.json'), getJSON('data/attack.json'), getJSON('data/galchenko.json'), getJSON('data/traps.json'), getJSON('data/games.json'), getJSON('data/story.json')]);
+  setStoryData(games, story);
   DATA = { ex: ex.concat(S().customEx || []), op, ls, rules, eg, atk, gk, tr };
   DATA.trById = Object.fromEntries(tr.drills.map(d => [d.id, d]));
   DATA.trGroup = Object.fromEntries(tr.groups.map(g => [g.id, g]));
@@ -335,6 +337,7 @@ function pageSession(D, kind) {
     const kindOf = id => id.startsWith('ol:') ? 'ol' : id.startsWith('ex:') ? 'ex' : 'ls';
     const done = g => { tick(); results.push({ id: q.id, g }); grade(q.id, g, kindOf(q.id)); k++; show(); };
     const [type, ...r] = q.id.split(':'); const rid = r.join(':');
+    setStoryFresh(status(q.id) === 'new' || queue.length === 1);
     if (type === 'gk') { const d = D.gkById[rid]; if (!d) { k++; return show(); } cur = mountLesson(app, d, { onDone: done, sessionInfo: info, badge: 'Курс Гальченко', ruleTitle: D.gkLesson[d.lesson]?.title }); }
     else if (type === 'tr') { const d = D.trById[rid]; if (!d) { k++; return show(); } cur = mountLesson(app, d, { onDone: done, sessionInfo: info, badge: 'Ловушки', ruleTitle: D.trGroup[d.group]?.title }); }
     else if (type === 'ak') { const d = D.akById[rid]; if (!d) { k++; return show(); } cur = mountExercise(app, JSON.parse(JSON.stringify(d)), { onDone: done, sessionInfo: info }); }

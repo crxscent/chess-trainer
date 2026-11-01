@@ -11,7 +11,7 @@ const DEFAULT = {
   settings: {
     lichess: 'Fem_T_o',
     newEx: 8, newLs: 4, newOl: 5,
-    threatStep: true, pieceStep: true,
+    threatStep: true, pieceStep: true, story: 'new',
     theme: 'auto',
   },
   created: Date.now(),

@@ -81,6 +81,7 @@ export function renderSettings(app, D, onReset) {
       <label class="f">Новых упражнений из партий в день</label><input type="number" id="s_ex" min="0" max="40" value="${st.newEx}">
       <label class="f">Новых задач «Школы плана» в день</label><input type="number" id="s_ls" min="0" max="20" value="${st.newLs}">
       <label class="f">Новых дебютных линий в день</label><input type="number" id="s_ol" min="0" max="20" value="${st.newOl}">
+      <label class="f">Показ партии до позиции задачи</label><select id="s_story">${[['new', 'Проигрывать в новых задачах'], ['always', 'Проигрывать всегда'], ['off', 'Сразу к задаче (листать можно)']].map(([v, t]) => `<option value="${v}" ${(st.story || 'new') === v ? 'selected' : ''}>${t}</option>`).join('')}</select>
       <div class="checks mt">
         <label class="chk ${st.threatStep ? 'on' : ''}"><input type="checkbox" id="s_t" ${st.threatStep ? 'checked' : ''}>Шаг «Что хочет соперник?»</label>
         <label class="chk ${st.pieceStep ? 'on' : ''}"><input type="checkbox" id="s_p" ${st.pieceStep ? 'checked' : ''}>Шаг «Худшая фигура»</label>
@@ -102,6 +103,7 @@ export function renderSettings(app, D, onReset) {
     st.newEx = Math.max(0, +app.querySelector('#s_ex').value || 0);
     st.newLs = Math.max(0, +app.querySelector('#s_ls').value || 0);
     st.newOl = Math.max(0, +app.querySelector('#s_ol').value || 0);
+    st.story = app.querySelector('#s_story').value;
     st.threatStep = app.querySelector('#s_t').checked; st.pieceStep = app.querySelector('#s_p').checked;
     save(true); toast('Сохранено');
   };

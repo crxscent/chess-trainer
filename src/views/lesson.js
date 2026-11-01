@@ -2,6 +2,7 @@
 import { Board, sanOf, fig } from '../board.js';
 import { esc, richText, bindSanChips } from '../ui.js';
 import { lineViewer } from './exercise.js';
+import { mountStory } from './story.js';
 
 export const THEMES = {
   prophylaxis: 'Профилактика', worstpiece: 'Худшая фигура', pawnmove: 'Стоит ли двигать пешку?',
@@ -20,33 +21,35 @@ export function mountLesson(root, ls, { onDone, sessionInfo = '', badge = 'Шк�
       <div class="row between mb"><div class="row"><span class="badge accent">${esc(badge)}</span><span class="badge">${esc(ruleTitle || THEMES[ls.theme] || ls.theme)}</span></div><span class="timer">${esc(sessionInfo)}</span></div>
       <h2>${esc(ls.title)}</h2>
       ${ls.context ? `<p class="hint">${richText(ls.context, { fig })}</p>` : ''}
-      <div class="q">${richText(ls.q, { fig })}</div>
-      <div class="body"></div>
+      <div class="story-slot"></div>
+      <div class="task" hidden><div class="q">${richText(ls.q, { fig })}</div>
+      <div class="body"></div></div>
+      <p class="hint story-wait">Посмотри, как шла партия. Задача появится, когда дойдём до позиции.</p>
     </div></div>
   </div>`;
   const board = new Board(root.querySelector('.cgb'), { fen: ls.fen, orientation: ls.orient || ls.color });
   board.setPosition(ls.fen, ls.last);
   const body = root.querySelector('.body');
   bindSanChips(root.querySelector('.panel'), board);
-  let grade = null;
+  let grade = null; let ask = () => { }; let done = false;
+  const story = mountStory(root.querySelector('.story-slot'), board, ls, { fen: ls.fen, last: ls.last, onEnd: () => { if (!done) ask(); } });
 
   if (ls.type === 'move') {
     body.innerHTML = `<p class="hint">Сыграй ход на доске.</p><div class="row"><button class="btn ghost" data-a="giveup">Показать ответ</button></div><div class="fb"></div>`;
     let tries = 0;
-    const ask = () => board.allowMoves(ls.color, mv => {
+    ask = () => board.allowMoves(ls.color, mv => {
       const u = mv.from + mv.to + (mv.promotion || '');
       tries++;
       if (ls.accept.includes(u)) { grade = tries === 1 ? 3 : 1; finish(true, u); }
       else if ((ls.partial || []).some(p => p[0] === u)) {
         const p = ls.partial.find(p => p[0] === u);
         body.querySelector('.fb').innerHTML = `<div class="verdict warn">${richText(p[1], { fig })} Попробуй ещё.</div>`;
-        setTimeout(() => { board.setPosition(ls.fen, ls.last); ask(); }, 700);
+        setTimeout(() => story.end(), 700);
       } else {
         body.querySelector('.fb').innerHTML = `<div class="verdict bad">Не то. ${tries >= 2 ? 'Подумай о худшей фигуре и об идее соперника.' : 'Попробуй ещё.'}</div>`;
-        setTimeout(() => { board.setPosition(ls.fen, ls.last); if (tries >= 3) { grade = 0; finish(false); } else ask(); }, 700);
+        setTimeout(() => { if (tries >= 3) { board.setPosition(ls.fen, ls.last); grade = 0; finish(false); } else story.end(); }, 700);
       }
     });
-    ask();
     body.querySelector('[data-a=giveup]').onclick = () => { board.lock(); grade = 0; finish(false); };
   } else {
     body.innerHTML = `<div class="options">${ls.options.map((o, i) => `<button class="opt" data-i="${i}">${richText(o.t, { fig })}</button>`).join('')}</div><div class="fb"></div>`;
@@ -63,7 +66,11 @@ export function mountLesson(root, ls, { onDone, sessionInfo = '', badge = 'Шк�
     });
   }
 
+  root.querySelector('.trainer').classList.add('playing');
+  story.begin(() => { root.querySelector('.trainer').classList.remove('playing'); root.querySelector('.story-wait').remove(); root.querySelector('.task').hidden = false; ask(); });
+
   function finish(ok, played) {
+    done = true; story.reveal();
     board.lock();
     if (ls.arrows) board.arrows(ls.arrows);
     const fb = body.querySelector('.fb');
@@ -77,7 +84,7 @@ export function mountLesson(root, ls, { onDone, sessionInfo = '', badge = 'Шк�
     const lv = fb.querySelector('.lineview');
     const lb = fb.querySelector('[data-a=line]');
     if (lb) lb.onclick = () => lineViewer(lv, board, ls.fen, ls.line, 'План', ls.last);
-    fb.querySelector('[data-a=done]').onclick = () => { board.destroy(); onDone && onDone(grade ?? 0); };
+    fb.querySelector('[data-a=done]').onclick = () => { story.destroy(); board.destroy(); onDone && onDone(grade ?? 0); };
   }
-  return { destroy: () => board.destroy() };
+  return { destroy: () => { story.destroy(); board.destroy(); } };
 }

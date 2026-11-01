@@ -3,6 +3,7 @@ import { Board, Chess, flipTurn, sanOf, lineSan, fig, uciToMove } from '../board
 import { wp, fmtCp, analyse, engineAvailable } from '../engine.js';
 import { esc, richText, bindSanChips, toast } from '../ui.js';
 import { settings, S, save, todayLog } from '../store.js';
+import { mountStory } from './story.js';
 
 export const CATS = {
   threat: { t: 'Что хочет соперник?', s: 'Профилактика', badge: 'bad', d: 'Позиции, где у соперника была угроза, а ты её пропустил. Сначала найди его идею — потом свой ход.' },
@@ -76,6 +77,7 @@ export function mountExercise(root, ex, { onDone, sessionInfo = '' } = {}) {
         </div>
         <h2>${esc(cat.t)}</h2>
         <div class="steps">${steps.map(s => `<span class="step-pill" data-s="${s}">${stepNames[s]}</span>`).join('')}</div>
+        <div class="story-slot"></div>
         <div class="body"></div>
       </div>
     </div>
@@ -85,9 +87,11 @@ export function mountExercise(root, ex, { onDone, sessionInfo = '' } = {}) {
   bindSanChips(body, board);
   const result = { threatOk: null, piece: null, move: null, verdict: null, shown: false };
   let stepIdx = 0;
+  let rearm = () => { }; // вернуть доску к текущему шагу после листания партии
+  const story = mountStory(root.querySelector('.story-slot'), board, ex, { fen: ex.fen, last: ex.last, onEnd: () => rearm() });
 
   function setStep(i) {
-    stepIdx = i;
+    stepIdx = i; story.sync();
     root.querySelectorAll('.step-pill').forEach((p, k) => { p.classList.toggle('on', k === i); p.classList.toggle('done', k < i); });
     ({ threat: stepThreat, piece: stepPiece, move: stepMove, review: stepReview })[steps[i]]();
   }
@@ -111,11 +115,13 @@ export function mountExercise(root, ex, { onDone, sessionInfo = '' } = {}) {
       <p class="hint">Представь, что ты пропускаешь ход. <b>Сыграй на доске ход за соперника</b> — что он сделает? Если серьёзной угрозы нет, нажми кнопку.</p>
       <div class="row mt"><button class="btn" data-a="none">Серьёзной угрозы нет</button><button class="btn ghost small" data-a="skip">Пропустить шаг</button></div>
       <div class="fb"></div>`;
-    board.allowMoves(opp, mv => answer(mv.from + mv.to + (mv.promotion || '')));
+    rearm = () => { board.setPosition(fen2, ex.last); board.allowMoves(opp, mv => answer(mv.from + mv.to + (mv.promotion || ''))); };
+    rearm();
     body.querySelector('[data-a=none]').onclick = () => { board.lock(); answer(null); };
     body.querySelector('[data-a=skip]').onclick = () => { board.lock(); resetPos(); next(); };
 
     function answer(uci) {
+      rearm = () => { };
       const th = ex.threat; const real = th.drop >= 100;
       const bestT = th.moves[0];
       let cls, txt;
@@ -143,6 +149,7 @@ export function mountExercise(root, ex, { onDone, sessionInfo = '' } = {}) {
 
   // ---------- шаг 2: худшая фигура ----------
   function stepPiece() {
+    rearm = () => { };
     resetPos();
     body.innerHTML = `
       <div class="q">Шаг 2 · Какая твоя фигура приносит меньше всего пользы?</div>
@@ -151,6 +158,7 @@ export function mountExercise(root, ex, { onDone, sessionInfo = '' } = {}) {
       <div class="fb"></div>`;
     body.querySelector('[data-a=skip]').onclick = () => { board.onSelect = null; next(); };
     board.onSelect = key => {
+      if (!story.atEnd()) return;
       const p = board.chess.get(key);
       if (!p || p.color !== color || p.type === 'p' || p.type === 'k') return;
       board.onSelect = null; board.cg.selectSquare(null);
@@ -193,10 +201,12 @@ export function mountExercise(root, ex, { onDone, sessionInfo = '' } = {}) {
       <p class="hint">${hasThreatStep ? '' : lastMoveText() + ' '}${esc(hints[ex.cat] || '')}</p>
       <div class="row mt"><button class="btn ghost" data-a="giveup">Не знаю — показать</button></div>
       <div class="fb"></div>`;
-    board.allowMoves(color, mv => onMove(mv.from + mv.to + (mv.promotion || '')));
+    rearm = () => board.allowMoves(color, mv => onMove(mv.from + mv.to + (mv.promotion || '')));
+    rearm();
     body.querySelector('[data-a=giveup]').onclick = () => { board.lock(); result.shown = true; result.verdict = { g: 0, cls: 'bad', t: 'Показан ответ' }; next(); };
 
     async function onMove(uci) {
+      rearm = () => { };
       let v = verdictOf(ex, uci);
       if (!v && engineAvailable()) {
         body.querySelector('.fb').innerHTML = '<p class="hint">Оцениваю ход движком…</p>';
@@ -214,6 +224,8 @@ export function mountExercise(root, ex, { onDone, sessionInfo = '' } = {}) {
   // ---------- шаг 4: разбор ----------
   function stepReview() {
     const v = result.verdict;
+    rearm = () => { };
+    story.reveal();
     resetPos();
     const best = sortedMoves(ex)[0][0];
     if (result.move) board.play(result.move);
@@ -264,7 +276,7 @@ export function mountExercise(root, ex, { onDone, sessionInfo = '' } = {}) {
       }
       let gr = v.g;
       if (gr === 3 && result.threatOk === false) gr = 2;
-      board.destroy();
+      story.destroy(); board.destroy();
       onDone && onDone(gr, result);
     };
   }
@@ -273,8 +285,9 @@ export function mountExercise(root, ex, { onDone, sessionInfo = '' } = {}) {
     return `<span class="san" data-uci="${uci}" data-brush="${brush}">${esc(fig(sanOf(fen, uci)))}</span>`;
   }
 
-  setStep(0);
-  return { destroy: () => board.destroy() };
+  root.querySelector('.trainer').classList.add('playing');
+  story.begin(() => { root.querySelector('.trainer').classList.remove('playing'); setStep(0); });
+  return { destroy: () => { story.destroy(); board.destroy(); } };
 }
 
 function fmtLoss(cp) {

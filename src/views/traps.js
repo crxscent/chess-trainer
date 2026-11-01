@@ -30,7 +30,7 @@ export function renderTraps(app, D, groupId) {
 function groupPage(app, T, g) {
   if (!g) { location.hash = '#/traps'; return () => { }; }
   const drills = T.drills.filter(d => d.group === g.id); const ids = trIds(T, g.id); const s = summary(ids);
-  const byKind = {}; drills.forEach(d => (byKind[d.kind] = byKind[d.kind] || []).push(d));
+  const byBranch = {}; drills.forEach(d => (byBranch[d.branch] = byBranch[d.branch] || []).push(d));
   app.innerHTML = `
   <div class="card prose" style="max-width:none">
     <div class="row mb"><a class="btn small ghost" href="#/traps">← Ловушки</a><span class="small muted">${esc(g.side)}</span></div>
@@ -38,9 +38,10 @@ function groupPage(app, T, g) {
     <p>${richText(g.lead)}</p>
     ${g.notes && g.notes.length ? `<ul>${g.notes.map(x => `<li>${richText(x)}</li>`).join('')}</ul>` : ''}
     <div class="row mt"><a class="btn primary" href="#/session/tr-${g.id}">Тренировать (${ids.length}) →</a><span class="small muted">освоено ${s.mastered} · повторить ${s.due}</span></div>
-    ${Object.entries(KIND).filter(([k]) => byKind[k]).map(([k, [t, cls]]) => `
-      <h3 class="mt2">${esc(t[0].toUpperCase() + t.slice(1))} · ${byKind[k].length}</h3>
-      <div class="list">${byKind[k].map(d => `<a class="item" href="#/session/one-${encodeURIComponent('tr:' + d.id)}"><span class="badge ${cls}">${esc(t)}</span><div class="grow"><div class="title">${esc(d.title)}</div><div class="sub">${esc((d.freq ? d.freq + ' · ' : '') + (d.q || '').slice(0, 90))}</div></div><span>→</span></a>`).join('')}</div>`).join('')}
+    <p class="small muted mt">Задачи идут по веткам дебюта, от первых ходов к дальним. В каждой партия проигрывается с начала.</p>
+    ${(g.branches || []).filter(b => byBranch[b]).map(b => `
+      <h3 class="mt2">${esc(b)} · ${byBranch[b].length}</h3>
+      <div class="list">${byBranch[b].map(d => `<a class="item" href="#/session/one-${encodeURIComponent('tr:' + d.id)}"><span class="badge ${KIND[d.kind][1]}">${esc(KIND[d.kind][0])}</span><div class="grow"><div class="title">${esc(d.title)}</div><div class="sub">${esc((d.freq ? d.freq + ' · ' : '') + (d.source || ''))}</div></div><span>→</span></a>`).join('')}</div>`).join('')}
   </div>`;
   return () => { };
 }
