@@ -15,7 +15,7 @@ function historyOf(d) {
     const m = g.m.split(' ');
     return { start: START, ucis: m.slice(0, d.gameRef.ply), rest: m.slice(d.gameRef.ply), title: `Партия: ${g.w} – ${g.b}` };
   }
-  if (d.path) return { start: d.start || START, ucis: d.path.split(' '), rest: [], title: d.start ? 'Позиция из урока: ходы от расстановки тренера' : 'Как возникла позиция' };
+  if (d.path) return { start: d.start || START, ucis: d.path.split(' '), rest: [], title: d.storyTitle || (d.start ? 'Позиция из урока: ходы от расстановки тренера' : 'Как возникла позиция') };
   return null;
 }
 
