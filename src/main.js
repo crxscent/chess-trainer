@@ -4,6 +4,7 @@ import { mountExercise, CATS } from './views/exercise.js';
 import { mountLesson, THEMES } from './views/lesson.js';
 import { setStoryData, setStoryFresh } from './views/story.js';
 import { renderTournament, tnIds } from './views/tournament.js';
+import { renderPatterns, ptIds, ptOwnIds } from './views/patterns.js';
 import { mountLine, mountLineBrowse } from './views/opening.js';
 import { renderReview } from './views/review.js';
 import { renderJournal } from './views/journal.js';
@@ -29,9 +30,11 @@ let cleanup = null;
 let DATA = null;
 async function data() {
   if (DATA) return DATA;
-  const [ex, op, ls, rules, eg, atk, gk, tr, games, story, tn] = await Promise.all([getJSON('data/exercises.json'), getJSON('data/openings.json'), getJSON('data/lessons.json'), getJSON('data/rules.json'), getJSON('data/endgames.json'), getJSON('data/attack.json'), getJSON('data/galchenko.json'), getJSON('data/traps.json'), getJSON('data/games.json'), getJSON('data/story.json'), getJSON('data/tournament.json')]);
+  const [ex, op, ls, rules, eg, atk, gk, tr, games, story, tn, pt] = await Promise.all([getJSON('data/exercises.json'), getJSON('data/openings.json'), getJSON('data/lessons.json'), getJSON('data/rules.json'), getJSON('data/endgames.json'), getJSON('data/attack.json'), getJSON('data/galchenko.json'), getJSON('data/traps.json'), getJSON('data/games.json'), getJSON('data/story.json'), getJSON('data/tournament.json'), getJSON('data/patterns.json')]);
   setStoryData(games, story);
-  DATA = { ex: ex.concat(S().customEx || []), op, ls, rules, eg, atk, gk, tr, tn };
+  DATA = { ex: ex.concat(S().customEx || []), op, ls, rules, eg, atk, gk, tr, tn, pt };
+  DATA.ptById = Object.fromEntries(pt.drills.map(d => [d.id, d]));
+  DATA.ptOf = Object.fromEntries(pt.patterns.flatMap(p => p.items.map(id => [id, p])));
   DATA.tnById = Object.fromEntries(tn.drills.map(d => [d.id, d]));
   DATA.tnTheme = Object.fromEntries(tn.themes.map(t => [t.id, t]));
   DATA.trById = Object.fromEntries(tr.drills.map(d => [d.id, d]));
@@ -73,7 +76,7 @@ function renderNav(route) {
   const top = route.startsWith('session/eval') ? 'session/eval' : route.split('/')[0];
   const inMore = MORE.some(m => m[0] === top) || top === 'more';
   document.getElementById('nav').innerHTML = NAV.map(([k, t]) => `<a href="#/${k}" class="${top === k || (k === 'more' && inMore) ? 'active' : ''}">${t}</a>`).join('');
-  const more = inMore || ['review', 'guide', 'plan', 'endgames', 'attack', 'galchenko', 'traps', 'tournament'].includes(top);
+  const more = inMore || ['review', 'guide', 'plan', 'endgames', 'attack', 'galchenko', 'traps', 'tournament', 'patterns'].includes(top);
   document.getElementById('bottomnav').innerHTML = BOTTOM.map(k => {
     if (k === 'more') return `<a href="#/more" class="${more ? 'active' : ''}"><span class="i">⋯</span>Ещё</a>`;
     const n = NAV.find(x => x[0] === k);
@@ -124,6 +127,7 @@ async function route() {
       case 'galchenko': cleanup = renderGalchenko(app, D, arg); return;
       case 'traps': cleanup = renderTraps(app, D, arg); return;
       case 'tournament': cleanup = renderTournament(app, D, arg); return;
+      case 'patterns': cleanup = renderPatterns(app, D, arg); return;
       case 'endgames': cleanup = renderEndgames(app, D, arg); return;
       case 'guide': cleanup = await renderGuide(app, arg); return;
       case 'card': cleanup = renderCard(app); return;
@@ -177,6 +181,7 @@ function dailyPlan(D) {
   const qGk = buildQueue(gkIds(D.gk), 'ls', { newLimit: cut < 1 ? 1 : 3, maxDue: 5 });
   const qTr = buildQueue(trIds(D.tr), 'ls', { newLimit: 1, maxDue: 4 });
   const qTn = buildQueue(tnIds(D.tn), 'ls', { newLimit: 3, maxDue: 4 });
+  const qPt = buildQueue(ptOwnIds(D.pt), 'ls', { newLimit: 2, maxDue: 4 });
   const rd = ruleOfDay(D);
   const ruleOwnAll = D.rules.rules.flatMap(r => r.drills.map(x => 'rd:' + x).concat(r.playouts.map(x => 'pl:' + x)));
   const dueRule = buildQueue(ruleOwnAll, 'ls', { newLimit: 0, maxDue: 3 }).due;
@@ -191,6 +196,7 @@ function dailyPlan(D) {
     { key: 'atk', t: 'Атака и защита', d: 'Атака, штурм при закрытом центре, защита, слом инициативы', min: 8, items: qAk.all },
     { key: 'conv', t: 'Реализация и эндшпиль', d: 'Простой путь к победе + эндшпиль против идеальной защиты', min: 10, items: q3.all.concat(qEg.all) },
     { key: 'open', t: 'Дебюты', d: 'Повторение линий по памяти', min: 5, items: q4.all },
+    { key: 'pt', t: 'Паттерны', d: 'Маты, жертвы, структуры, манёвры и эндшпиль', min: 5, items: qPt.all },
     { key: 'tr', t: 'Ловушки', d: 'Дракон, испанская, староиндийская: поймай и не попадись', min: 3, items: qTr.all },
   ];
 }
@@ -295,6 +301,10 @@ function pageSession(D, kind) {
     const t = kind.slice(3); const ids = trIds(D.tr, t === 'all' ? null : t);
     const q = buildQueue(ids, 'ls', { newLimit: t === 'all' ? 8 : 99 });
     queue = (q.all.length ? q.all : ids).map(id => ({ id, block: t === 'all' ? 'Ловушки' : D.trGroup[t]?.title || 'Ловушки' })); title = 'Ловушки';
+  } else if (kind.startsWith('pt-')) {
+    const t = kind.slice(3); const ids = ptIds(D.pt, t === 'all' ? null : t);
+    const q = buildQueue(ids, 'ls', { newLimit: t === 'all' ? 8 : 99 });
+    queue = (q.all.length ? q.all : ids).map(id => ({ id, block: D.ptOf[id]?.title || 'Паттерны' })); title = 'Паттерны';
   } else if (kind.startsWith('tn-')) {
     const t = kind.slice(3); const ids = tnIds(D.tn, t === 'all' ? null : t);
     const q = buildQueue(ids, 'ls', { newLimit: 99 });
@@ -349,6 +359,7 @@ function pageSession(D, kind) {
     const [type, ...r] = q.id.split(':'); const rid = r.join(':');
     setStoryFresh(status(q.id) === 'new' || queue.length === 1);
     if (type === 'gk') { const d = D.gkById[rid]; if (!d) { k++; return show(); } cur = mountLesson(app, d, { onDone: done, sessionInfo: info, badge: 'Курс Гальченко', ruleTitle: D.gkLesson[d.lesson]?.title }); }
+    else if (type === 'pt') { const d = D.ptById[rid]; if (!d) { k++; return show(); } cur = mountLesson(app, d, { onDone: done, sessionInfo: info, badge: 'Паттерны', ruleTitle: D.ptOf[q.id]?.title }); }
     else if (type === 'tn') { const d = D.tnById[rid]; if (!d) { k++; return show(); } cur = mountLesson(app, d, { onDone: done, sessionInfo: info, badge: 'Турнир', ruleTitle: D.tnTheme[d.theme]?.title }); }
     else if (type === 'tr') { const d = D.trById[rid]; if (!d) { k++; return show(); } cur = mountLesson(app, d, { onDone: done, sessionInfo: info, badge: 'Ловушки', ruleTitle: D.trGroup[d.group]?.title }); }
     else if (type === 'ak') { const d = D.akById[rid]; if (!d) { k++; return show(); } cur = mountExercise(app, JSON.parse(JSON.stringify(d)), { onDone: done, sessionInfo: info }); }
@@ -492,7 +503,7 @@ function pageLine(D, lid) {
 }
 
 function pageMore() {
-  const items = [['tournament', 'Турнир', '♛', 'Разбор пяти партий с бланков и задачи из твоих ошибок'], ['traps', 'Ловушки', '⚡', 'Дракон, испанская, староиндийская: поймай соперника и не попадись сам'], ['galchenko', 'Курс Гальченко', '▶', 'Конспекты видеоуроков «Крепыш» и «Громила» и задачи по ним'], ['attack', 'Атака и защита', '⚔', 'Атака на короля, штурм, защита, слом инициативы, сыграй структуру'], ['endgames', 'Эндшпиль', '♚', 'Лусена, Филидор, пешечные, основы и эндшпили из твоих партий'], ['plan', 'Школа плана', '♜', 'Задачи «найди план» в структурах твоего репертуара'], ['review', 'Разбор партии', '✎', 'Свои партии: сначала без движка, потом проверка; новые упражнения'], ['guide', 'Справочник', '📖', 'Структуры, атакующие схемы, время, тильт, план на месяц']].concat(MORE);
+  const items = [['patterns', 'Паттерны', '◆', 'Греческий подарок, спёртый мат, миноритарная атака, испанский конь, Лусена и другие'], ['tournament', 'Турнир', '♛', 'Разбор пяти партий с бланков и задачи из твоих ошибок'], ['traps', 'Ловушки', '⚡', 'Дракон, испанская, староиндийская: поймай соперника и не попадись сам'], ['galchenko', 'Курс Гальченко', '▶', 'Конспекты видеоуроков «Крепыш» и «Громила» и задачи по ним'], ['attack', 'Атака и защита', '⚔', 'Атака на короля, штурм, защита, слом инициативы, сыграй структуру'], ['endgames', 'Эндшпиль', '♚', 'Лусена, Филидор, пешечные, основы и эндшпили из твоих партий'], ['plan', 'Школа плана', '♜', 'Задачи «найди план» в структурах твоего репертуара'], ['review', 'Разбор партии', '✎', 'Свои партии: сначала без движка, потом проверка; новые упражнения'], ['guide', 'Справочник', '📖', 'Структуры, атакующие схемы, время, тильт, план на месяц']].concat(MORE);
   app.innerHTML = `<div class="page-head"><h1>Ещё</h1></div><div class="list">${items.map(([k, t, i, d]) => `<a class="item" href="#/${k}"><span style="font-size:20px;width:28px;text-align:center">${i}</span><div class="grow"><div class="title">${t}</div><div class="sub">${d}</div></div><span>→</span></a>`).join('')}</div>`;
 }
 

@@ -1,5 +1,5 @@
 // Урок «Школы плана»: позиция + вопрос (выбор плана) или «найди ход/манёвр».
-import { Board, sanOf, fig } from '../board.js';
+import { Board, sanOf, fig, lineSan } from '../board.js';
 import { esc, richText, bindSanChips } from '../ui.js';
 import { lineViewer } from './exercise.js';
 import { mountStory } from './story.js';
@@ -32,7 +32,10 @@ export function mountLesson(root, ls, { onDone, sessionInfo = '', badge = 'Шк�
   const body = root.querySelector('.body');
   bindSanChips(root.querySelector('.panel'), board);
   let grade = null; let ask = () => { }; let done = false;
-  const story = mountStory(root.querySelector('.story-slot'), board, ls, { fen: ls.fen, last: ls.last, onEnd: () => { if (!done) ask(); } });
+  // задача в несколько ходов (ls.seq: твой ход, ответ, твой ход…): шаг j и позиция перед ним
+  let j = 0; let curFen = ls.fen; let curLast = ls.last;
+  const story = mountStory(root.querySelector('.story-slot'), board, ls, { fen: ls.fen, last: ls.last, onEnd: () => { if (!done) { if (j) board.setPosition(curFen, curLast); ask(); } } });
+  const back = () => { if (j) { board.setPosition(curFen, curLast); ask(); } else story.end(); };
 
   if (ls.type === 'move') {
     body.innerHTML = `<p class="hint">Сыграй ход на доске.</p><div class="row"><button class="btn ghost" data-a="giveup">Показать ответ</button></div><div class="fb"></div>`;
@@ -40,14 +43,24 @@ export function mountLesson(root, ls, { onDone, sessionInfo = '', badge = 'Шк�
     ask = () => board.allowMoves(ls.color, mv => {
       const u = mv.from + mv.to + (mv.promotion || '');
       tries++;
-      if (ls.accept.includes(u)) { grade = tries === 1 ? 3 : 1; finish(true, u); }
+      if (ls.seq) {
+        const last = j === ls.seq.length - 1;
+        if (u === ls.seq[j] || (last && mv.san.endsWith('#'))) {
+          j++;
+          if (j >= ls.seq.length) { grade = tries <= 1 ? 3 : 1; finish(true, u); return; }
+          body.querySelector('.fb').innerHTML = '<div class="verdict good">Верно! Соперник отвечает…</div>';
+          setTimeout(() => { board.play(ls.seq[j]); curLast = ls.seq[j]; j++; curFen = board.fen(); body.querySelector('.fb').innerHTML = '<div class="verdict good">Продолжай.</div>'; ask(); }, 500);
+          return;
+        }
+      }
+      if (!ls.seq && ls.accept.includes(u)) { grade = tries === 1 ? 3 : 1; finish(true, u); }
       else if ((ls.partial || []).some(p => p[0] === u)) {
         const p = ls.partial.find(p => p[0] === u);
         body.querySelector('.fb').innerHTML = `<div class="verdict warn">${richText(p[1], { fig })} Попробуй ещё.</div>`;
-        setTimeout(() => story.end(), 700);
+        setTimeout(back, 700);
       } else {
         body.querySelector('.fb').innerHTML = `<div class="verdict bad">Не то. ${tries >= 2 ? 'Подумай о худшей фигуре и об идее соперника.' : 'Попробуй ещё.'}</div>`;
-        setTimeout(() => { if (tries >= 3) { board.setPosition(ls.fen, ls.last); grade = 0; finish(false); } else story.end(); }, 700);
+        setTimeout(() => { if (tries >= 3) { board.setPosition(ls.fen, ls.last); grade = 0; finish(false); } else back(); }, 700);
       }
     });
     body.querySelector('[data-a=giveup]').onclick = () => { board.lock(); grade = 0; finish(false); };
@@ -75,7 +88,7 @@ export function mountLesson(root, ls, { onDone, sessionInfo = '', badge = 'Шк�
     if (ls.arrows) board.arrows(ls.arrows);
     const fb = body.querySelector('.fb');
     fb.insertAdjacentHTML('beforeend', `
-      ${ls.type === 'move' ? `<div class="verdict ${ok ? 'good' : 'bad'}">${ok ? 'Верно!' : `Ответ: ${ls.accept.map(u => `<span class="san" data-uci="${u}">${esc(fig(sanOf(ls.fen, u)))}</span>`).join(' или ')}`}</div>` : ''}
+      ${ls.type === 'move' ? `<div class="verdict ${ok ? 'good' : 'bad'}">${ok ? 'Верно!' : ls.seq ? `Решение: ${esc(lineSan(ls.fen, ls.seq, 20))}` : `Ответ: ${ls.accept.map(u => `<span class="san" data-uci="${u}">${esc(fig(sanOf(ls.fen, u)))}</span>`).join(' или ')}`}</div>` : ''}
       <div class="explain mt"><p>${richText(ls.explain, { fig })}</p></div>
       ${ls.rule ? `<div class="lesson-rule">${richText(ls.rule)}</div>` : ''}
       ${ls.line ? '<div class="row"><button class="btn small" data-a="line">▶ Показать план на доске</button></div>' : ''}
