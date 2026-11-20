@@ -22,7 +22,7 @@ function historyOf(d) {
 export function mountStory(el, board, d, { fen, last, onEnd } = {}) {
   const h = historyOf(d);
   const plain = { begin: ready => ready(), end() { board.setPosition(fen, last); if (onEnd) onEnd(); }, atEnd: () => true, sync() { }, reveal() { }, close() { el.innerHTML = ''; }, destroy() { } };
-  if (!h) { el.innerHTML = '<div class="small muted story-none">Учебная позиция: партии до неё нет.</div>'; return plain; }
+  if (!h) { el.innerHTML = `<div class="small muted story-none">${esc(d.noHistory || 'Учебная позиция: партии до неё нет.')}</div>`; return plain; }
   const c = new Chess(h.start); const fens = [h.start]; const sans = []; const ucis = [];
   const push = u => { let m; try { m = c.move(uciToMove(u)); } catch (e) { return false; } if (!m) return false; fens.push(c.fen()); sans.push(m); ucis.push(u); return true; };
   for (const u of h.ucis) if (!push(u)) { el.innerHTML = ''; return plain; }
